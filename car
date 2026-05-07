@@ -1,0 +1,132 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+// NRF24
+RF24 radio(2, 4); // CE, CSN
+const byte address[6] = "00001";
+
+char command = 'S';
+
+// Motor Driver Pins
+const int IN1 = 7;
+const int IN2 = 8;
+const int IN3 = 9;
+const int IN4 = 10;
+const int ENA = 3;
+const int ENB = 5;
+
+void stopCar() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+ 
+}
+
+void moveForward() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+
+}
+
+void moveBackward() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+
+}
+
+void turnLeft() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+ 
+
+}
+
+void turnRight() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+   
+}
+
+void setup() {
+  Serial.begin(9600);
+
+  // Motor pins
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
+  //analogWrite(ENA, 180);
+ // analogWrite(ENB, 180);
+
+  stopCar();
+
+  // NRF24 setup
+  radio.begin();
+  radio.openReadingPipe(0, address);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setDataRate(RF24_250KBPS);   
+  radio.startListening();
+
+  Serial.println("=== Car Receiver Ready ===");
+}
+
+void loop() {
+  if (radio.available()) {
+    radio.read(&command, sizeof(command));
+
+    Serial.print("Received Command: ");
+    Serial.println(command);
+
+    switch (command) {
+      case 'F':
+        moveForward();
+        delay(340);
+        stopCar();
+         delay(300);
+        
+        break;
+
+      case 'B':
+        moveBackward();
+         delay(340);
+        stopCar();
+         delay(300);
+         
+        break;
+
+      case 'L':
+        turnLeft();
+         delay(340);
+        stopCar();
+         delay(300);
+       
+        break;
+
+      case 'R':
+        turnRight();
+         delay(340);
+        stopCar();
+         delay(300);
+       
+        break;
+
+      case 'S':
+      default:
+        stopCar();
+        break;
+    }
+  }
+}
