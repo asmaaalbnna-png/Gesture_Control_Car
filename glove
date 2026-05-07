@@ -1,0 +1,116 @@
+#include <Wire.h>
+#include <MPU6050.h>
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+MPU6050 mpu;
+
+// NRF
+RF24 radio(9, 10);
+const byte address[6] = "00001";
+
+int16_t ax, ay, az;
+
+float pitch, roll;
+
+char command = 'S';
+char lastCommand = 'X';
+
+const float THRESHOLD = 25;
+
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+
+  mpu.initialize();
+  mpu.setSleepEnabled(false);
+
+  Serial.println("Glove System Started");
+
+  delay(500);
+
+  // NRF setup
+  radio.begin();
+  radio.openWritingPipe(address);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setDataRate(RF24_250KBPS);
+  radio.setRetries(5, 15);
+  radio.stopListening();
+
+  Serial.println("NRF Ready");
+}
+
+void loop() {
+
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x68, 6, true);
+
+  if (Wire.available() < 6) return;
+
+  ax = Wire.read() << 8 | Wire.read();
+  ay = Wire.read() << 8 | Wire.read();
+  az = Wire.read() << 8 | Wire.read();
+
+
+  float denomPitch = sqrt((float)ay * ay + (float)az * az);
+  float denomRoll  = sqrt((float)ax * ax + (float)az * az);
+
+  pitch = atan2((float)ax, denomPitch) * 180 / PI;
+
+  roll  = atan2((float)ay, denomRoll) * 180 / PI;
+
+  
+  roll = -roll;
+
+ 
+
+  command = 'S';
+  String direction = "STOP";
+
+  if (pitch > THRESHOLD) {
+    command = 'F';
+    direction = "FORWARD ";
+  }
+  else if (pitch < -THRESHOLD) {
+    command = 'B';
+    direction = "BACKWARD ";
+  }
+  else if (roll > THRESHOLD) {
+    command = 'R';
+    direction = "RIGHT ";
+  }
+  else if (roll < -THRESHOLD) {
+    command = 'L';
+    direction = "LEFT ";
+  }
+  else {
+    command = 'S';
+    direction = "STOP ";
+  }
+
+
+
+  Serial.print("Pitch: ");
+  Serial.print(pitch);
+  Serial.print(" | Roll: ");
+  Serial.print(roll);
+  Serial.print(" || ");
+  Serial.println(direction);
+
+
+
+  if (command != lastCommand) {
+    bool ok = radio.write(&command, sizeof(command));
+
+    Serial.print("Sent: ");
+    Serial.print(command);
+ 
+
+    lastCommand = command;
+  }
+
+  delay(80);
+}
